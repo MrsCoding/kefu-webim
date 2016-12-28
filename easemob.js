@@ -1185,7 +1185,7 @@ easemobim.titleSlide = function () {
 	'use strict';
 	var utils = easemobim.utils;
 	easemobim.config = easemobim.config || {};
-	easemobim.version = '43.12.008';
+	easemobim.version = '43.12.014';
 	easemobim.tenants = {};
 
 	var DEFAULT_CONFIG = {
@@ -1297,15 +1297,16 @@ easemobim.titleSlide = function () {
 
 
 		if ( utils.isMobile ) {
+			var prefix = (_config.tenantId || '') + (_config.emgroup || '');
 
 			//store ext
 			if ( _config.extMsg ) {
-				utils.setStore(_config.tenantId + _config.emgroup + 'ext', JSON.stringify(_config.extMsg));
+				utils.setStore(prefix + 'ext', JSON.stringify(_config.extMsg));
 			}
 
 			//store visitor info 
 			if ( _config.visitor ) {
-				utils.setStore(_config.tenantId + _config.emgroup + 'visitor', JSON.stringify(_config.visitor));
+				utils.setStore(prefix + 'visitor', JSON.stringify(_config.visitor));
 			}
 
 

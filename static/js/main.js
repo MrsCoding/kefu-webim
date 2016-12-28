@@ -20250,7 +20250,6 @@ easemobim.channel = function ( config ) {
 								break;
 							// 会话结束
 							case 'ServiceSessionClosedEvent':
-								easemobim.eventCollector.startToReport();
 								me.session = null;
 								me.sessionSent = false;
 								config.agentUserId = null;
@@ -20736,7 +20735,9 @@ easemobim.videoChat = (function(dialog){
 		sendMessageAPI = sendMessage;
 		config = cfg;
 
-		videoWidget.classList.remove('hide');
+		// 视频组件初始化
+		// 直接操作style是为了避免video标签在加载时一闪而过，影响体验
+		videoWidget.style.display = '';
 		// 按钮初始化
 		btnVideoInvite.classList.remove('hide');
 		btnVideoInvite.addEventListener('click', function(){
@@ -20910,14 +20911,16 @@ easemobim.videoChat = (function(dialog){
 				if ( utils.isTop ) {
 					//get visitor
 					var visInfo = config.visitor;
+					var prefix = (config.tenantId || '') + (config.emgroup || '');
+
 					if ( !visInfo ) {
-						visInfo = utils.getStore(config.tenantId + config.emgroup + 'visitor');
+						visInfo = utils.getStore(prefix + 'visitor');
 						try { config.visitor = Easemob.im.Utils.parseJSON(visInfo); } catch ( e ) {}
 						utils.clearStore(config.tenantId + config.emgroup + 'visitor');
 					}
 
 					//get ext
-					var ext = utils.getStore(config.tenantId + config.emgroup + 'ext');
+					var ext = utils.getStore(prefix + 'ext');
 					try { ext && me.sendTextMsg('', false, {ext: Easemob.im.Utils.parseJSON(ext)}); } catch ( e ) {}
 					utils.clearStore(config.tenantId + config.emgroup + 'ext');
 				} else {
@@ -21683,9 +21686,13 @@ easemobim.videoChat = (function(dialog){
 
 				//机器人列表
 				utils.live('button.js_robotbtn', utils.click, function () {
-					me.sendTextMsg(utils.html(this), null, {
-						msgtype: {
-							choice: { menuid: this.getAttribute('data-id') }
+					me.sendTextMsg(utils.html(this), null, {ext:
+						{
+							msgtype: {
+								choice: {
+									menuid: this.getAttribute('data-id')
+								}
+							}
 						}
 					});
 					return false;
@@ -22059,10 +22066,10 @@ easemobim.videoChat = (function(dialog){
 	function _reportData(userType, userId){
 		transfer.send({event: 'updateURL'}, window.transfer.to);
 
-		easemobim.api('reportEvent', {
+		_url && easemobim.api('reportEvent', {
 			type: 'VISIT_URL',
 			// 第一次轮询时URL还未传过来，所以使用origin
-			url: _url || transfer.origin,
+			url: _url,
 			// for debug
 			// url: 'http://172.17.3.86',
 			// 时间戳不传，以服务器时间为准
@@ -22087,7 +22094,7 @@ easemobim.videoChat = (function(dialog){
 							_polling.stop();
 							_polling = new Polling(function(){
 								_reportData('VISITOR', _gid);
-							});
+							}, POLLING_INTERVAL);
 						}
 						_stopReporting();
 						_callback(data);
@@ -22109,6 +22116,12 @@ easemobim.videoChat = (function(dialog){
 	function _startToReoprt(config, callback){
 		_callback || (_callback = callback);
 		_config || (_config = config);
+
+		// h5 方式屏蔽访客回呼功能
+		if(utils.isTop) return;
+
+		// 要求外部页面更新URL
+		transfer.send({event: 'updateURL'}, window.transfer.to);
 
 		// 用户点击联系客服弹出的窗口，结束会话后调用的startToReport没有传入参数
 		if(!_config){
@@ -22176,10 +22189,6 @@ easemobim.videoChat = (function(dialog){
 			}, function(msg){
 				// 没有会话数据，则开始轮询
 				if(!msg.data){
-					_polling.start();
-				}
-				// 机器人接待的会话，也需要轮询
-				else if(msg.data && msg.data.robotId){
 					_polling.start();
 				}
 			});
@@ -22344,7 +22353,7 @@ easemobim.videoChat = (function(dialog){
 	function initUI(config, callback) {
 		var iframe = document.getElementById('EasemobKefuWebimIframe');
 
-		iframe.src = config.domain + '/webim/transfer.html?v=43.12.007';
+		iframe.src = config.domain + '/webim/transfer.html?v=43.12.014';
 		utils.on(iframe, 'load', function() {
 			easemobim.getData = new easemobim.Transfer('EasemobKefuWebimIframe', 'data');
 			callback(config);
@@ -22360,21 +22369,15 @@ easemobim.videoChat = (function(dialog){
 		// em-kefu-webim-chat
 		utils.toggleClass(
 			utils.$Dom('em-kefu-webim-chat'),
-			'em-hide', !(utils.isTop || !config.minimum)
+			'em-hide',
+			!(utils.isTop || !config.minimum)
 		);
 
-		// 联系客服按钮
-		var $button = utils.$Class('a.em-widget-pop-bar')[0];
+		// 设置联系客服按钮文字
+		document.querySelector('.em-widget-pop-bar').innerText = config.buttonText;
 
-		// 设置按钮文字
-		$button.innerText = config.buttonText;
-
-		// mobile
+		// 添加移动端样式类
 		if (utils.isMobile) {
-			// 联系客服按钮改为弹窗
-			$button.href = location.href;
-			$button.target = '_blank';
-			// 添加移动端样式类
 			utils.addClass(document.body, 'em-mobile');
 		}
 
